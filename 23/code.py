@@ -1,110 +1,82 @@
 from collections import defaultdict
 
-elf2next = dict()
-with open('data.txt') as f:
-    for i, line in enumerate(f.read().split('\n')):
-        for j, c in enumerate(line):
-            if c == '#':
-                elf2next[(i,j)] = None
+## PART 1
 
+with open('data.txt') as f:
+    map = [[c for c in line.strip()[1:-1]] for line in f]
+    map = map[1:-1]
+
+char2dir = {
+    '>' : (0, 1),
+    '^' : (-1, 0),
+    '<' : (0, -1),
+    'v' : (1, 0),
+}
+
+blizzards = []
+for i, row in enumerate(map):
+    for j, c in enumerate(row):
+        if c != '.':
+            blizzards.append((i, j, char2dir[c]))
+
+
+HEIGHT = len(map)
+WIDTH = len(map[0])
+
+def is_empty(i, j, time):
+    for bi, bj, dir in blizzards:
+        di, dj = dir
+        if (bi + time*di) % HEIGHT == i and (bj + time*dj) % WIDTH == j:
+            return False
+    return True
+
+assert is_empty(0, 0, 1)
+
+import math
+LCM = math.lcm(HEIGHT, WIDTH)
+
+
+def time_when_reach_goal(i, j, goal_i, goal_j, start_time):
+    visited = set((i, j, start_time%LCM))
+    q = [(i, j, start_time)]
+    while q:
+        i, j, time = q.pop(0)
+        if i == goal_i and j == goal_j:
+            return time
+        for di, dj in [(-1, 0), (1, 0), (0, -1), (0, 1), (0, 0)]:
+            ni = (i+di)
+            nj = (j+dj)
+            if (0<=ni<HEIGHT and 0<=nj<WIDTH) and is_empty(ni, nj, time+1) and (ni, nj, (time+1) % LCM) not in visited:
+                visited.add((ni, nj, (time+1) % LCM))
+                q.append((ni, nj, time+1))
+    return None
 
 ## PART 1
 
-DIRECTIONS = [
-    [(-1, -1), (-1, 0), (-1, 1)], # North
-    [(1, -1), (1, 0), (1, 1)],    # South
-    [(-1, -1), (0, -1), (1, -1)], # West
-    [(-1, 1), (0, 1), (1, 1)],    # East
-]
-start_dir = 0
-
-def pair_sum(pair1, pair2):
-    i1, j1 = pair1
-    i2, j2 = pair2
-    return (i1+i2, j1+j2)
-
-def print_grid():
-    print('')
-    min_i = min(i for i, j in elf2next.keys())
-    min_j = min(j for i, j in elf2next.keys())
-    max_i = max(i for i, j in elf2next.keys())
-    max_j = max(j for i, j in elf2next.keys())
-
-    HEIGHT = (max_i + 1 - min_i)
-    WIDTH = (max_j + 1 - min_j)
-    grid = [['.' for _ in range(WIDTH)] for _ in range(HEIGHT)]
-    for elf in elf2next.keys():
-        i, j = elf
-        grid[i-min_i][j-min_j] = '#'
-    for row in grid:
-        print(''.join(row))
-
-
-for _ in range(10):
-    # Propose direction
-    location_count = defaultdict(int)
-    for elf in elf2next.keys():
-        if all(pair_sum(elf, delta) not in elf2next  for cluster in DIRECTIONS for delta in cluster):
-            elf2next[elf] = elf
-            continue
-        d = start_dir
-        for _ in range(4):
-            if all(pair_sum(elf, delta) not in elf2next for delta in DIRECTIONS[d]):
-                elf2next[elf] = pair_sum(elf, DIRECTIONS[d][1])
-                location_count[pair_sum(elf, DIRECTIONS[d][1])] += 1
-                break
-            d = (d + 1) % 4
-        else:
-            elf2next[elf] = elf # All ways blocked
-
-    # Move
-    elf2next = {(next if location_count[next] < 2 else elf) : None for elf, next in elf2next.items()}
-    start_dir = (start_dir+1) % 4
-
-
-min_i = min(i for i, j in elf2next.keys())
-min_j = min(j for i, j in elf2next.keys())
-max_i = max(i for i, j in elf2next.keys())
-max_j = max(j for i, j in elf2next.keys())
-print((max_i + 1 - min_i) * (max_j + 1 - min_j) - len(elf2next.keys()))
-
+print(1 + time_when_reach_goal(0, 0, HEIGHT-1, WIDTH-1, 1)) # Extra step to leave maze
 
 
 ## PART 2
 
-elf2next = dict()
-with open('data.txt') as f:
-    for i, line in enumerate(f.read().split('\n')):
-        for j, c in enumerate(line):
-            if c == '#':
-                elf2next[(i,j)] = None
-
-start_dir = 0
-round = 0
+time1 = time_when_reach_goal(0, 0, HEIGHT-1, WIDTH-1, 1)
+time1 += 2
 while True:
-    round += 1
-    # Propose direction
-    location_count = defaultdict(int)
-    for elf in elf2next.keys():
-        if all(pair_sum(elf, delta) not in elf2next  for cluster in DIRECTIONS for delta in cluster):
-            elf2next[elf] = elf
-            continue
-        d = start_dir
-        for _ in range(4):
-            if all(pair_sum(elf, delta) not in elf2next for delta in DIRECTIONS[d]):
-                elf2next[elf] = pair_sum(elf, DIRECTIONS[d][1])
-                location_count[pair_sum(elf, DIRECTIONS[d][1])] += 1
-                break
-            d = (d + 1) % 4
-        else:
-            elf2next[elf] = elf # All ways blocked
-
-    # Check for no-move
-    if all((next == elf) or location_count[next] >= 2  for elf, next in elf2next.items()):
+    if not is_empty(HEIGHT-1, WIDTH-1, time1):
+        time1 += 1
+        continue
+    time2 = time_when_reach_goal(HEIGHT-1, WIDTH-1, 0, 0, time1)
+    if time2:
         break
+    time1 += 1
 
-    # Move
-    elf2next = {(next if location_count[next] < 2 else elf) : None for elf, next in elf2next.items()}
-    start_dir = (start_dir+1) % 4
+time2 += 2
+while True:
+    if not is_empty(0, 0, time2):
+        time2 += 1
+        continue
+    time3 = time_when_reach_goal(0, 0, HEIGHT-1, WIDTH-1, time2)
+    if time3:
+        break
+    time2 += 1
 
-print(round)
+print("Answer: ", 1+time3)
